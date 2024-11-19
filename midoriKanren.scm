@@ -333,6 +333,32 @@
        (eval-conde-clauses `(,c2 . ,c-rest) s/c env c-rest$)
        (mpluso c-$ c-rest$ $)))))
 
+(define (eval-conda-clauses c* s/c env $)
+  (conde
+    ((fresh (ge ge*)
+       (== `((,ge . ,ge*)) c*)
+       (eval-gexpro `(conj* ,ge . ,ge*) s/c env $)))
+    ((fresh (ge ge* ln ln*)
+       (== `((,ge . ,ge*) ,ln . ,ln*) c*)
+       (ifteo ge `(conj* . ,ge*) `(conda ,ln . ,ln*) s/c env $)))))
+
+(define (ifteo ge1 ge2 ge3 s/c env $)
+  (fresh ($^)
+    (eval-gexpro ge1 s/c env $^)
+    (ifte-auxo $^ ge2 ge3 s/c env $)))
+
+(define (ifte-auxo $i ge2 ge3 s/c env $o)
+  (conde
+    ((== '() $i)
+     (eval-gexpro ge3 s/c env $o))
+    ((fresh (d $-pulled)
+       (== `(delayed . ,d) $i)
+       (== `(delayed ifte-aux ,$i ,ge2 ,ge3 ,s/c ,env) $o)))
+    ((fresh ($i-a $i-d)
+       (== `(,$i-a . ,$i-d) $i)
+       (=/= 'delayed $i-a)
+       (bindo $i ge2 env $o)))))
+
 (define (copy-term-lookupo var var/var^-store var^)
   (fresh ()
     (var?o var)
@@ -448,6 +474,9 @@
     [(fresh (c*)
        (== `(conde . ,c*) expr)
        (eval-conde-clauses c* s/c env $))]
+    [(fresh (c*)
+       (== `(conda . ,c*) expr)
+       (eval-conda-clauses c* s/c env $))]
     [(fresh (x e v ge ge* env^)
        (== `(let ((,x ,e)) ,ge . ,ge*) expr)
        (symbolo x)
@@ -595,7 +624,12 @@
        (== `(delayed bind ,saved-$ ,saved-ge ,saved-env) $)
        (pullo saved-$ saved-$1)
        (bindo saved-$1 saved-ge saved-env $2)
-       (pullo $2 $1))]))
+       (pullo $2 $1))]  
+    [(fresh (saved-$ saved-ge2 saved-ge3 saved-s/c saved-env saved-$1 $2)
+      (== `(delayed ifte-aux ,saved-$ ,saved-ge2 ,saved-ge3 ,saved-s/c ,saved-env) $)
+      (pullo saved-$ saved-$1)
+      (ifte-auxo saved-$1 saved-ge2 saved-ge3 saved-s/c saved-env $2)
+      (pullo $2 $1))]))
 
 (define (take-allo $ s/c*)
   (fresh ($1)

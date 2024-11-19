@@ -8,6 +8,133 @@
 ;; `subsumes-termo` (and for all variants of `copy-termo`, if
 ;; necessary)
 
+;; conda tests
+
+;; taken from TRS2e
+;; with (== #t #t) in place of #s, and (== #f #t) in place of #u
+
+(test "conda-9.1"
+  (run* (x)
+    (eval-programo
+     `(run* (z)
+        (conda
+          ((== #f #t) (== #t #t))
+          ((== #t #t) (== #f #t))))
+      x))
+    '(()))
+
+(test "conda-9.2"
+  (run* (x)
+    (eval-programo
+     `(run* (z)
+        (conda
+          ((== #f #t) (== #t #t))
+          ((== #t #t) (== #t #t))))
+      x))
+    '(((_.))))
+
+(test "conda-9.3"
+  (run* (x)
+    (eval-programo
+     `(run* (z)
+        (conda
+          ((== #t #t) (== #f #t))
+          ((== #t #t) (== #t #t))))
+      x))
+    '(()))
+
+(test "conda-9.4"
+  (run* (x)
+    (eval-programo
+     `(run* (z)
+        (conda
+          ((== #t #t) (== #t #t))
+          ((== #t #t) (== #f #t))))
+      x))
+    '(((_.))))
+
+(test "conda-9.5"
+  (run* (q)
+    (eval-programo
+     `(run* (x)
+        (conda
+          ((== 'olive x) (== #t #t))
+          ((== #t #t) (=== 'oil x))))
+      q))
+  '((olive)))
+
+;; frame 9.6 has no code
+
+(test "conda-9.7"
+  (run* (q)
+    (eval-programo
+      `(run* (x)
+         (conda
+           ((== 'virgin x) (== #f #t))
+           ((== 'olive x) (== #t #t))
+           ((== #t #t) (== 'oil x))))
+       q))
+  '(()))
+
+(test "conda-9.8"
+  (run* (z)
+    (eval-programo
+      `(run* (q)
+         (fresh (x y)
+           (== 'split x)
+           (== 'pea y)
+           (conda
+             ((== 'split x) (== x y))
+             ((== #t #t) (== #t #t)))))
+        z))
+  '(()))
+
+(test "conda-9.9"
+  (run* (z)
+    (eval-programo
+      `(run* (q)
+         (fresh (x y)
+           (== 'split x)
+           (== 'pea y)
+           (conda
+             ((== x y) (== 'split x))
+             ((== #t #t) (== #t #t)))))
+        z))
+  '(((_.))))
+
+;; frame 9.6 has no code
+
+(test "conda-9.11"
+  (run* (z)
+    (eval-programo
+     `(run* (x)
+        (letrec-rel ((not-pastao (x)
+                     (conda
+                       ((== 'pasta x) (== #f #t))
+                       ((== #t #t)))))
+          (conda
+            ((not-pastao x) (== #f #t))
+            ((== 'spaghetti x) (== #t #t)))))
+      z))
+  '((spaghetti)))
+
+(test "conda-9.12"
+  (run* (z)
+    (eval-programo
+     `(run* (x)
+        (letrec-rel ((not-pastao (x)
+                     (conda
+                       ((== 'pasta x) (== #f #t))
+                       ((== #t #t)))))
+          (== 'spaghetti x)
+          (conda
+            ((not-pastao x) (== #f #t))
+            ((== 'spaghetti x) (== #t #t)))))
+      z))
+  '(()))
+
+;; frame 9.13 diverges
+
 ;; term subsumption tests, including tests adapted from
 ;; https://www.swi-prolog.org/pldoc/man?predicate=subsumes_term%2f2
 
