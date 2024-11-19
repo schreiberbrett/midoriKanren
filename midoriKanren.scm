@@ -8,31 +8,23 @@
 (define (peano n)
   (if (zero? n) '() `(,(peano (- n 1)))))
 
-(define (peanoo p)
-  (conde
-    [(== '() p)]
-    [(fresh (p1)
-       (== `(,p1) p)
-       (peanoo p1))]))
-
 (define (var?o x)
   (fresh (val)
-    (== `(var . ,val) x)
-    (peanoo val)))
+    ;; `val` is a Peano numeral    
+    (== `(var . ,val) x)))
 
-(define (var=?o x y)
+(define (var=?o x y)  
   (fresh (val)
+    ;; `val` is a Peano numeral
     (== `(var . ,val) x)
-    (== `(var . ,val) y)
-    (peanoo val)))
+    (== `(var . ,val) y)))
 
 (define (var=/=o x y)
   (fresh (val1 val2)
+    ;; `val1` and `val2` are Peano numerals
     (== `(var . ,val1) x)
     (== `(var . ,val2) y)
-    (=/= val1 val2)
-    (peanoo val1)
-    (peanoo val2)))
+    (=/= val1 val2)))
 
 (define (booleano b)
   (conde
@@ -179,6 +171,68 @@
             (unifyo u-a v-a s s-a)
             (unifyo u-d v-d s-a s1)]))])))
 
+(define (subsumes-term-lookupo var var/term-store var/term)
+  (fresh ()
+    (var?o var)
+    (conde
+      ((== '() var/term-store)
+       (== #f var/term))
+      ((fresh (v term^ rest)
+         (== `((,v . ,term^) . ,rest) var/term-store)
+         (var?o v)
+         (conde
+           ((== v var) (== `(,v . ,term^) var/term))
+           ((=/= v var) (subsumes-term-lookupo var rest var/term))))))))
+
+(define (subsumes-term-auxo generic-unwalked specific-unwalked s gen-var/spec-term-store gen-var/spec-term-store^)
+  (fresh (gen spec)
+    (walko generic-unwalked s gen)
+    (walko specific-unwalked s spec)
+    (conde
+      [(var?o gen)
+       (fresh (var/term)
+         (subsumes-term-lookupo gen gen-var/spec-term-store var/term)
+         (conde
+           ((== #f var/term)
+            (== `((,gen . ,spec) . ,gen-var/spec-term-store) gen-var/spec-term-store^))
+           ((fresh (term)
+              (== `(,gen . ,term) var/term)
+              (conde
+                ((== term spec)
+                 (== gen-var/spec-term-store gen-var/spec-term-store^))
+                ((=/= term spec)
+                 (== #f gen-var/spec-term-store^)))))))]
+      [(conde
+         ((numbero gen))
+         ((symbolo gen))
+         ((booleano gen))
+         ((== '() gen)))
+       (conde
+         ((== gen spec) (== gen-var/spec-term-store gen-var/spec-term-store^))
+         ((=/= gen spec) (== #f gen-var/spec-term-store^)))]
+      [(fresh (a d)
+         (== `(,a . ,d) gen)
+         (=/= 'var a))
+       (== #f gen-var/spec-term-store^)
+       (conde
+         ((var?o spec))
+         ((numbero spec))
+         ((symbolo spec))
+         ((booleano spec))
+         ((== '() spec)))]
+      [(fresh (gen-a gen-d spec-a spec-d gen-var/spec-term-store^^)
+         (== `(,gen-a . ,gen-d) gen)
+         (== `(,spec-a . ,spec-d) spec)
+         (=/= 'var gen-a)
+         (=/= 'var spec-a)
+         (conde
+           [(== #f gen-var/spec-term-store^^)
+            (== #f gen-var/spec-term-store^)
+            (subsumes-term-auxo gen-a spec-a s gen-var/spec-term-store gen-var/spec-term-store^^)]
+           [(=/= #f gen-var/spec-term-store^^)
+            (subsumes-term-auxo gen-a spec-a s gen-var/spec-term-store gen-var/spec-term-store^^)
+            (subsumes-term-auxo gen-d spec-d s gen-var/spec-term-store^^ gen-var/spec-term-store^)]))])))
+
 (define mzero '())
 
 (define (mpluso $1 $2 $)
@@ -279,6 +333,82 @@
        (eval-conde-clauses `(,c2 . ,c-rest) s/c env c-rest$)
        (mpluso c-$ c-rest$ $)))))
 
+(define (copy-term-lookupo var var/var^-store var^)
+  (fresh ()
+    (var?o var)
+    (conde
+      ((== '() var/var^-store)
+       (== #f var^))
+      ((fresh (v var^^ rest)
+         (== `((,v . ,var^^) . ,rest) var/var^-store)
+         (var?o v)
+         (var?o var^^)
+         (conde
+           ((== v var) (== var^ var^^))
+           ((=/= v var) (copy-term-lookupo var rest var^))))))))
+
+(define (copy-term-auxo t1-unwalked t1-copy s c c^ var/var^-store var/var^-store^)
+  (fresh (t1)
+    (walko t1-unwalked s t1)
+    (conde
+      [(numbero t1)
+       (== t1 t1-copy)
+       (== c c^)
+       (== var/var^-store var/var^-store^)]
+      [(symbolo t1)
+       (== t1 t1-copy)
+       (== c c^)
+       (== var/var^-store var/var^-store^)]
+      [(booleano t1)
+       (== t1 t1-copy)
+       (== c c^)
+       (== var/var^-store var/var^-store^)]
+      [(== '() t1)
+       (== t1 t1-copy)
+       (== c c^)
+       (== var/var^-store var/var^-store^)]
+      [(var?o t1)
+       (fresh (var^)
+         (conde
+           ((== #f var^)
+            (== `(var . ,c) t1-copy)
+            (== `(,c) c^)
+            (== `((,t1 . (var . ,c)) . ,var/var^-store) var/var^-store^))
+           ((var?o var^)
+            (== var^ t1-copy)
+            (== c c^)
+            (== var/var^-store var/var^-store^)))
+         (copy-term-lookupo t1 var/var^-store var^))]
+      [(fresh (a d a-copy d-copy c^^ var/var^-store^^)
+         (== `(,a . ,d) t1)
+         (== `(,a-copy . ,d-copy) t1-copy)
+         (=/= 'var a)
+         (=/= 'var a-copy)
+         (copy-term-auxo a a-copy s c c^^ var/var^-store var/var^-store^^)
+         (copy-term-auxo d d-copy s c^^ c^ var/var^-store^^ var/var^-store^))])))
+
+(define (copy-term-4auxo in-unwalked in-copy s var/var^-store)
+  (fresh (in)
+    (walko in-unwalked s in)
+    (conde
+      [(numbero in) (== in in-copy)]
+      [(symbolo in) (== in in-copy)]
+      [(booleano in) (== in in-copy)]
+      [(== '() in) (== in in-copy)]
+      [(var?o in)
+       (fresh (var^)
+         (conde
+           ((== #f var^) (== in in-copy))
+           ((var?o var^) (== var^ in-copy)))
+         (copy-term-lookupo in var/var^-store var^))]      
+      [(fresh (a d a-copy d-copy)
+         (== `(,a . ,d) in)
+         (== `(,a-copy . ,d-copy) in-copy)
+         (=/= 'var a)
+         (=/= 'var a-copy)
+         (copy-term-4auxo a a-copy s var/var^-store)
+         (copy-term-4auxo d d-copy s var/var^-store))])))
+
 (define (eval-gexpro expr s/c env $)
   (conde
     [(fresh (ge)
@@ -303,6 +433,18 @@
          [(== #f s1) (== '() $)]
          [(=/= #f s1) (== `((,s1 . ,c)) $)])
        (unifyo v1 v2 s s1))]
+    [(fresh (generic-te specific-te generic specific s c gen-var/spec-term-store^)
+       (== `(subsumes-termo ,generic-te ,specific-te) expr)
+       ;; inspired by https://www.swi-prolog.org/pldoc/man?predicate=subsumes_term%2f2
+       (== `(,s . ,c) s/c)
+       (eval-schemeo generic-te env generic)
+       (eval-schemeo specific-te env specific)
+       (conde
+         [(== #f gen-var/spec-term-store^) (== '() $)]
+         [(=/= #f gen-var/spec-term-store^)
+          ;; upon success, use the original unextended state
+          (== `((,s . ,c)) $)])
+       (subsumes-term-auxo generic specific s '() gen-var/spec-term-store^))]
     [(fresh (c*)
        (== `(conde . ,c*) expr)
        (eval-conde-clauses c* s/c env $))]
@@ -312,6 +454,31 @@
        (== `((,x . ,v) . ,env) env^)
        (eval-schemeo e env v)
        (eval-gexpro `(conj* ,ge . ,ge*) s/c env^ $))]
+    [(fresh (te1 te2 t1 t2 t1-copy s c s^ c^ _)
+       (== `(copy-termo ,te1 ,te2) expr)
+       (== `(,s . ,c) s/c)
+       (eval-schemeo te1 env t1)
+       (eval-schemeo te2 env t2)
+       (copy-term-auxo t1 t1-copy s c c^ '() _)
+       (conde
+         [(== #f s^) (== '() $)]
+         [(=/= #f s^) (== `((,s^ . ,c^)) $)])
+       (unifyo t1-copy t2 s s^))]
+    [(fresh (vars-in-e vars-in vars-in-copy in-e in in-copy vars-out-e vars-out out-e out s c s^ c^ var/var^-store^)
+       ;; interface based on:
+       ;; https://www.swi-prolog.org/pldoc/doc_for?object=copy_term/4
+       (== `(copy-term-4o ,vars-in-e ,in-e ,vars-out-e ,out-e) expr)
+       (== `(,s . ,c) s/c)
+       (eval-schemeo vars-in-e env vars-in)
+       (eval-schemeo vars-out-e env vars-out)
+       (eval-schemeo in-e env in)
+       (eval-schemeo out-e env out)
+       (copy-term-auxo vars-in vars-in-copy s c c^ '() var/var^-store^)
+       (copy-term-4auxo in in-copy s var/var^-store^)
+       (conde
+         [(== #f s^) (== '() $)]
+         [(=/= #f s^) (== `((,s^ . ,c^)) $)])
+       (unifyo `(,vars-in-copy . ,in-copy) `(,vars-out . ,out) s s^))]
     [(fresh (id params geb ge ge* env^)
        (== `(letrec-rel ((,id ,params ,geb)) ,ge . ,ge*) expr)
        (symbolo id)
